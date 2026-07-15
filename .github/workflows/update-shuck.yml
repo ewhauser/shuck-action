@@ -13,23 +13,40 @@ jobs:
   update:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
     steps:
+      - name: Check automation token
+        id: token
+        shell: bash
+        run: |
+          if [[ -n "$RELEASE_PAT" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::RELEASE_PAT is not configured; dependency update automation is disabled."
+          fi
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        if: steps.token.outputs.configured == 'true'
         with:
           persist-credentials: true
-          token: ${{ secrets.RELEASE_PAT || github.token }}
+          token: ${{ env.RELEASE_PAT }}
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        if: steps.token.outputs.configured == 'true'
         with:
           run_install: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.token.outputs.configured == 'true'
         with:
           cache: pnpm
           node-version: '24'
-      - run: pnpm install --frozen-lockfile
+      - if: steps.token.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
       - name: Resolve latest complete Shuck release
+        if: steps.token.outputs.configured == 'true'
         id: update
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          GH_TOKEN: ${{ env.RELEASE_PAT }}
         run: node scripts/update-shuck-version.mjs
       - name: Validate update
         if: steps.update.outputs.changed == 'true'
@@ -37,7 +54,7 @@ jobs:
       - name: Open update pull request
         if: steps.update.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          GH_TOKEN: ${{ env.RELEASE_PAT }}
           NEXT_VERSION: ${{ steps.update.outputs.next-version }}
         run: |
           set -euo pipefail
