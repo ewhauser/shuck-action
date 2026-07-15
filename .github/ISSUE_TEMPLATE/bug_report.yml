@@ -1,0 +1,39 @@
+name: Bug report
+description: Report unexpected action installation or execution behavior
+title: 'bug: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not report security vulnerabilities here; use private vulnerability reporting.
+  - type: input
+    id: action-version
+    attributes:
+      label: Action version or commit
+    validations:
+      required: true
+  - type: input
+    id: shuck-version
+    attributes:
+      label: Shuck version
+    validations:
+      required: true
+  - type: input
+    id: runner
+    attributes:
+      label: Runner operating system and architecture
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Minimal workflow and logs
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true

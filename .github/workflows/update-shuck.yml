@@ -1,0 +1,59 @@
+name: Update Shuck
+
+on:
+  schedule:
+    - cron: '17 8 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: true
+          token: ${{ secrets.RELEASE_PAT || github.token }}
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile
+      - name: Resolve latest complete Shuck release
+        id: update
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+        run: node scripts/update-shuck-version.mjs
+      - name: Validate update
+        if: steps.update.outputs.changed == 'true'
+        run: pnpm check
+      - name: Open update pull request
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
+          NEXT_VERSION: ${{ steps.update.outputs.next-version }}
+        run: |
+          set -euo pipefail
+          branch="automation/shuck-v${NEXT_VERSION}"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            echo "An update pull request for Shuck v${NEXT_VERSION} already exists."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git switch -C "$branch"
+          git add action.yml
+          git commit -m "fix(deps): update default Shuck to v${NEXT_VERSION}"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "fix(deps): update default Shuck to v${NEXT_VERSION}" \
+            --body "Updates the action's tested default to Shuck v${NEXT_VERSION}. All required release archives and checksums were present, and the action test suite passed."

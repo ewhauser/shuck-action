@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Shuck CLI issues
+    url: https://github.com/ewhauser/shuck/issues
+    about: Report linter, formatter, parser, or CLI behavior in the main Shuck repository.

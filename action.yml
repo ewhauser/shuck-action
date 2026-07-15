@@ -1,0 +1,43 @@
+name: Shuck - Shell Linter and Formatter
+description: Install Shuck and lint or format shell scripts with native GitHub annotations
+author: Eric Hauser
+
+inputs:
+  mode:
+    description: Operation to perform (setup, check, or format)
+    required: false
+    default: check
+  shuck-version:
+    description: Exact Shuck version to install, with an optional leading v
+    required: false
+    default: 0.0.43
+  working-directory:
+    description: Directory in which Shuck runs, relative to GITHUB_WORKSPACE
+    required: false
+    default: .
+  paths:
+    description: Newline-delimited files or directories passed to Shuck
+    required: false
+    default: .
+  args:
+    description: Additional shell-style arguments passed safely to the selected Shuck subcommand
+    required: false
+    default: ''
+  format-mode:
+    description: Formatting behavior (check, diff, or write)
+    required: false
+    default: check
+
+outputs:
+  shuck-version:
+    description: Normalized Shuck version that was installed
+  shuck-path:
+    description: Absolute path to the Shuck executable
+
+runs:
+  using: node24
+  main: dist/index.js
+
+branding:
+  icon: terminal
+  color: purple

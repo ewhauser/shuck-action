@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  integration:
+    name: Integration (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Set up Shuck
+        id: shuck
+        uses: ./
+        with:
+          mode: setup
+      - name: Verify later-step PATH and outputs
+        shell: bash
+        run: |
+          shuck --version | grep -F "${{ steps.shuck.outputs.shuck-version }}"
+          test -x "${{ steps.shuck.outputs.shuck-path }}" || test -f "${{ steps.shuck.outputs.shuck-path }}"
+
+  behavior:
+    name: Check and format behavior
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Clean check succeeds
+        uses: ./
+        with:
+          paths: test/fixtures/clean
+      - name: Violating check fails
+        id: violating-check
+        continue-on-error: true
+        uses: ./
+        with:
+          paths: test/fixtures/violations
+      - name: Assert violating result
+        env:
+          OUTCOME: ${{ steps.violating-check.outcome }}
+        run: test "$OUTCOME" = failure
+      - name: Formatting check fails on drift
+        id: format-check
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: format
+          paths: test/fixtures/format
+      - name: Formatting diff fails on drift
+        id: format-diff
+        continue-on-error: true
+        uses: ./
+        with:
+          mode: format
+          format-mode: diff
+          paths: test/fixtures/format
+      - name: Assert non-writing formatter results
+        env:
+          CHECK_OUTCOME: ${{ steps.format-check.outcome }}
+          DIFF_OUTCOME: ${{ steps.format-diff.outcome }}
+        run: |
+          test "$CHECK_OUTCOME" = failure
+          test "$DIFF_OUTCOME" = failure
+          git diff --quiet -- test/fixtures/format/unformatted.sh
+      - name: Formatting write modifies the checkout
+        uses: ./
+        with:
+          mode: format
+          format-mode: write
+          paths: test/fixtures/format
+      - name: Assert formatter write
+        run: |
+          if git diff --quiet -- test/fixtures/format/unformatted.sh; then
+            echo "formatter did not modify the fixture" >&2
+            exit 1
+          fi
+
+  musl:
+    name: Musl smoke (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Download, verify, and execute in Alpine
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          version=$(awk '/shuck-version:/{found=1} found && /default:/{print $2; exit}' action.yml)
+          asset="shuck-cli-${TARGET}.tar.xz"
+          base="https://github.com/ewhauser/shuck/releases/download/v${version}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${base}/${asset}"
+          curl --proto '=https' --tlsv1.2 -fsSLO "${base}/${asset}.sha256"
+          sha256sum --check "${asset}.sha256"
+          mkdir extracted
+          tar -xJf "$asset" -C extracted
+          binary=$(find "$PWD/extracted" -type f -name shuck -print -quit)
+          chmod +x "$binary"
+          docker run --rm -v "$(dirname "$binary"):/shuck:ro" alpine:3.22 /shuck/shuck --version

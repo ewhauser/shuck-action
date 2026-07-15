@@ -1,0 +1,34 @@
+name: Advance major tag
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.event.release.tag_name }}
+          token: ${{ secrets.RELEASE_PAT || github.token }}
+      - name: Move compatibility tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Not a stable semantic release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          major="v${BASH_REMATCH[1]}"
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag --force "$major" "$RELEASE_TAG"
+          git push --force origin "refs/tags/${major}"
