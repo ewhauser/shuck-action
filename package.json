@@ -1,6 +1,6 @@
 {
   "name": "shuck-action",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Install and run Shuck in GitHub Actions",
   "license": "MIT",
