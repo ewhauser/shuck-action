@@ -17,12 +17,25 @@ concurrency:
 jobs:
   release-please:
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
     permissions:
       contents: write
       pull-requests: write
     steps:
+      - name: Check release token
+        id: token
+        shell: bash
+        run: |
+          if [[ -n "$RELEASE_PAT" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::RELEASE_PAT is not configured; release automation is disabled."
+          fi
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        if: steps.token.outputs.configured == 'true'
         with:
-          token: ${{ secrets.RELEASE_PAT || github.token }}
+          token: ${{ env.RELEASE_PAT }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json

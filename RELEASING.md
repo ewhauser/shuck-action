@@ -4,7 +4,7 @@ Release Please maintains the action's semantic version independently from Shuck.
 
 ## Repository setup
 
-Add a `RELEASE_PAT` Actions secret containing a fine-grained token with Contents and Pull requests write access to this repository. Workflows fall back to `GITHUB_TOKEN`, but pull requests created with that token do not trigger normal pull-request workflows.
+Add a `RELEASE_PAT` Actions secret containing a fine-grained token with Contents and Pull requests write access to this repository. Release and dependency-update automation remains disabled until this secret is present; the restricted default `GITHUB_TOKEN` is not used to create pull requests.
 
 Enable private vulnerability reporting and require the `Unit and package`, platform integration, behavior, and musl checks on `main`.
 
