@@ -10,7 +10,7 @@ inputs:
   shuck-version:
     description: Exact Shuck version to install, with an optional leading v
     required: false
-    default: 0.0.43
+    default: 0.0.45
   working-directory:
     description: Directory in which Shuck runs, relative to GITHUB_WORKSPACE
     required: false
