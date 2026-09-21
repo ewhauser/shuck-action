@@ -7,7 +7,9 @@ updates:
     groups:
       npm-development:
         dependency-type: development
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
